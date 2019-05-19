@@ -1,5 +1,5 @@
 from algorithms.data_util import DataLoader, pad
-from tokenizer_util import HebrewTokenizer
+from utils.tokenizer_util import HebrewTokenizer
 
 # Preprocess Data
 
