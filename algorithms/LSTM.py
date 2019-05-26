@@ -4,36 +4,36 @@ from keras import optimizers
 from keras.layers import Dense, Dropout, Input
 from keras.layers import Embedding
 from keras.layers import LSTM
-# %% md
-## Import required modules from Keras
-# %%
 from keras.models import Model
 from keras.models import load_model
+from keras.callbacks import *
 
 from algorithms.data_util import DataLoader, pad, plot_loss_and_accuracy, pad_data_list
 from utils.tokenizer_util import HebrewTokenizer
 
-MODEL_PATH = '..\models\Linear-Token-70.078.h5'
-
-
+MODEL_PATH = '..\models\LSTM-Token-88.242.h5'
 
 # Preprocess Data
 # load
-all_data = DataLoader('../data/token_train.tsv', '../data/token_test.tsv', '../data/tweets_netanyahu.txt')
-
+all_data = DataLoader('../data/token_train.tsv', '../data/token_test.tsv', '../data/preprocessed')
 
 # tokenize
 heb_tokenizer = HebrewTokenizer(all_data.x_token_train, init_from_file=True)
 x_token_train = heb_tokenizer.texts_to_sequences(all_data.x_token_train)
 x_token_test = heb_tokenizer.texts_to_sequences(all_data.x_token_test)
-x_tweets = heb_tokenizer.texts_to_sequences(all_data.x_tweets_test)
+
+x_tweets_dict_processed = {}
+for key, x_tweets in all_data.x_tweets_dict.items():
+    x_tweets = heb_tokenizer.texts_to_sequences(x_tweets)
+    x_tweets = pad_data_list([x_tweets])[0]
+    x_tweets_dict_processed[key] = x_tweets
 
 y_token_test = all_data.y_token_test
 y_token_train = all_data.y_token_train
 
 # pad
 x_token_train, x_token_test = pad(x_token_train, x_token_test)
-x_tweets = pad_data_list([x_tweets])[0]
+# x_tweets = pad_data_list([x_tweets])[0]
 
 
 def train_model():
@@ -50,7 +50,7 @@ def train_model():
     num_epochs = 5
     ## LSTM - Token
     # %%
-    num_epochs = 7
+    num_epochs = 100
     lstm_units = 93
 
     # Create new TF graph
@@ -59,7 +59,7 @@ def train_model():
     # Construct model
     text_input = Input(shape=(max_document_length,))
     x = Embedding(vocabulary_size, embedding_size)(text_input)
-    x = LSTM(units=lstm_units, return_sequences=True)(x)
+    x = LSTM(units=lstm_units, return_sequences=True, activation='relu')(x)
     x = LSTM(units=lstm_units)(x)
     x = Dense(128, activation='relu')(x)
     x = Dropout(dropout_keep_prob)(x)
@@ -74,11 +74,13 @@ def train_model():
                   metrics=['accuracy'])
 
     # Train the model
+    es = EarlyStopping(patience=3)
+    rlrop = ReduceLROnPlateau(patience=2)
     history = model.fit(x_token_train, y_token_train,
                         batch_size=batch_size,
                         epochs=num_epochs,
                         verbose=1,
-                        validation_split=dev_size)
+                        validation_split=dev_size, callbacks=[es, rlrop])
 
     # Plot training accuracy and loss
     plot_loss_and_accuracy(history)
@@ -94,13 +96,19 @@ def train_model():
 
 def predict_tweets():
     new_model = load_model(MODEL_PATH)
-    predictions = new_model.predict(x_tweets)
-    predictions = predictions.argmax(axis=1)
+    for file_name, x_tweets_processed in x_tweets_dict_processed.items():
+        predictions = new_model.predict(x_tweets_processed)
+        predictions = predictions.argmax(axis=1)
     # create predictions file
-    predictions = pd.DataFrame(predictions)
-    tweets = pd.DataFrame(all_data.x_tweets_test)
-    tweets['preds'] = predictions[0]
-    tweets.to_csv('..\\results\\labeled_tweets.csv', encoding='utf-8', index=False, header=False)
+
+        predictions = pd.DataFrame(predictions)
+        tweets = pd.DataFrame(all_data.x_tweets_dict[file_name])
+        tweets['preds'] = predictions[0]
+        # os.path.splitext("path_to_file")[0]
+        tweets.to_csv('..\\results\\' + os.path.splitext(file_name)[0] + '.csv', encoding='utf-8', index=False, header=False)
+        tweets.to_csv('..\\results\\' + file_name, encoding='utf-8', index=False, header=False)
+    print("Done prediction")
 
 
-train_model()
+# train_model()
+predict_tweets()

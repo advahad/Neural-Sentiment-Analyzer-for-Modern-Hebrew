@@ -3,6 +3,8 @@ import codecs
 import numpy as np
 from keras.preprocessing import sequence
 from keras.utils.np_utils import to_categorical
+from os import listdir
+from os.path import isfile, join
 
 import matplotlib.pyplot as plt
 
@@ -36,15 +38,19 @@ def load_data(filename):
     return x, y
 
 
-def load_data_tweets(filename):
-    data = list(codecs.open(filename, 'r', 'utf-8').readlines())
+def load_data_tweets(dir_name):
+    files = [f for f in listdir(dir_name) if isfile(join(dir_name, f))]
+    files_dict = {}
+    for file in files:
+        data = list(codecs.open(dir_name + '/' + file, 'r', 'utf-8').readlines())
+        files_dict[str(file)] = np.asarray(list(data))
     # x= zip(*[d.strip() for d in data])
     # Reducing any char-acter sequence of more than 3 consecutive repetitions to a respective 3-character sequence
     # (e.g. “!!!!!!!!”turns to “!!!”)
     # x = [re.sub(r'((.)\2{3,})', r'\2\2\2', i) for i in x]
-    x = np.asarray(list(data))
 
-    return x
+
+    return files_dict
 
 
 def pad_data_list(data_list, max_document_length=100):
@@ -63,10 +69,10 @@ def pad(x_train, x_test, max_document_length=100):
 
 
 class DataLoader:
-    def __init__(self, train_file_name, test_file_name, tweets_file_name):
+    def __init__(self, train_file_name, test_file_name, tweets_file_dir):
         self.x_token_train, self.y_token_train = load_data(train_file_name)
         self.x_token_test, self.y_token_test = load_data(test_file_name)
-        self.x_tweets_test = load_data_tweets(tweets_file_name)
+        self.x_tweets_dict = load_data_tweets(tweets_file_dir)
 
         # print('X token train shape: {}'.format(x_token_train.shape))
         # print('X token test shape: {}'.format(x_token_test.shape))
