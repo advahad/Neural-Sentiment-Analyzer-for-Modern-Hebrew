@@ -1,0 +1,5 @@
+Threshold,Instances size,Accuracy
+0,180,0.62
+0.75,132,0.66
+0.85,112,0.68
+0.95,68,0.72

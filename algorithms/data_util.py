@@ -1,12 +1,12 @@
 import codecs
-
-import numpy as np
-from keras.preprocessing import sequence
-from keras.utils.np_utils import to_categorical
 from os import listdir
 from os.path import isfile, join
 
 import matplotlib.pyplot as plt
+import numpy as np
+import pandas as pd
+from keras.preprocessing import sequence
+from keras.utils.np_utils import to_categorical
 
 
 def plot_loss_and_accuracy(history):
@@ -42,13 +42,11 @@ def load_data_tweets(dir_name):
     files = [f for f in listdir(dir_name) if isfile(join(dir_name, f))]
     files_dict = {}
     for file in files:
-        data = list(codecs.open(dir_name + '/' + file, 'r', 'utf-8').readlines())
-        files_dict[str(file)] = np.asarray(list(data))
-    # x= zip(*[d.strip() for d in data])
-    # Reducing any char-acter sequence of more than 3 consecutive repetitions to a respective 3-character sequence
-    # (e.g. “!!!!!!!!”turns to “!!!”)
-    # x = [re.sub(r'((.)\2{3,})', r'\2\2\2', i) for i in x]
-
+        file_path = dir_name + '/' + file
+        # names = ["edge_type", "src_party", "src_wing", "dst_party", "dst_wing", "src_account",
+        #            "dst_account", "full_text"]
+        data = pd.read_csv(file_path)
+        files_dict[str(file)] = data
 
     return files_dict
 

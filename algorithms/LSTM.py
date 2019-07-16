@@ -15,18 +15,18 @@ MODEL_PATH = '..\models\LSTM-Token-88.242.h5'
 
 # Preprocess Data
 # load
-all_data = DataLoader('../data/token_train.tsv', '../data/token_test.tsv', '../data/preprocessed')
+all_data = DataLoader('../data/token_train.tsv', '../data/token_test.tsv', '../data/edge')
 
 # tokenize
 heb_tokenizer = HebrewTokenizer(all_data.x_token_train, init_from_file=True)
 x_token_train = heb_tokenizer.texts_to_sequences(all_data.x_token_train)
 x_token_test = heb_tokenizer.texts_to_sequences(all_data.x_token_test)
 
-x_tweets_dict_processed = {}
+x_tweets_dict_pre_processed = {}
 for key, x_tweets in all_data.x_tweets_dict.items():
-    x_tweets = heb_tokenizer.texts_to_sequences(x_tweets)
-    x_tweets = pad_data_list([x_tweets])[0]
-    x_tweets_dict_processed[key] = x_tweets
+    x_tweets_pre_processed = heb_tokenizer.texts_to_sequences(list(x_tweets['full_text']))
+    x_tweets_pre_processed = pad_data_list([list(x_tweets_pre_processed)])[0]
+    x_tweets_dict_pre_processed[key] = x_tweets_pre_processed
 
 y_token_test = all_data.y_token_test
 y_token_train = all_data.y_token_train
@@ -96,17 +96,22 @@ def train_model():
 
 def predict_tweets():
     new_model = load_model(MODEL_PATH)
-    for file_name, x_tweets_processed in x_tweets_dict_processed.items():
+    for file_name, x_tweets_processed in x_tweets_dict_pre_processed.items():
         predictions = new_model.predict(x_tweets_processed)
-        predictions = predictions.argmax(axis=1)
+        predictions_prob = np.max(predictions, axis=1)
+        predictions_binary = predictions.argmax(axis=1)
     # create predictions file
 
-        predictions = pd.DataFrame(predictions)
+        predictions_binary = pd.DataFrame(predictions_binary)
+        predictions_prob = pd.DataFrame(predictions_prob)
+
         tweets = pd.DataFrame(all_data.x_tweets_dict[file_name])
-        tweets['preds'] = predictions[0]
+        tweets['preds_binary'] = predictions_binary[0]
+        tweets['preds_prob'] = predictions_prob[0]
         # os.path.splitext("path_to_file")[0]
-        tweets.to_csv('..\\results\\' + os.path.splitext(file_name)[0] + '.csv', encoding='utf-8', index=False, header=False)
-        tweets.to_csv('..\\results\\' + file_name, encoding='utf-8', index=False, header=False)
+        # tweets.to_csv('..\\results\\' + os.path.splitext(file_name)[0] + '.csv', encoding='utf-8', index=False, header=False)
+        # tweets.to_csv('..\\results\\' + file_name, encoding='utf-8', index=False, header=False)
+        tweets.to_csv('..\\results\\edge\\lstm\\' + file_name, header=True, encoding='utf-8')
     print("Done prediction")
 
 

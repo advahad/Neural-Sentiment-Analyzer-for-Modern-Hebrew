@@ -1,10 +1,10 @@
 import pandas as pd
-from keras import backend as K
 from keras import optimizers
 from keras.layers import Dense, Dropout, Flatten, Input, Concatenate
 from keras.layers import Embedding
 from keras.layers.convolutional import Conv1D
 from keras.layers.pooling import MaxPool1D
+from keras.callbacks import *
 
 from keras.models import Model
 from keras.models import load_model
@@ -12,27 +12,28 @@ from keras.models import load_model
 from algorithms.data_util import DataLoader, pad, plot_loss_and_accuracy, pad_data_list
 from utils.tokenizer_util import HebrewTokenizer
 
-MODEL_PATH = '..\models\Linear-Token-70.078.h5'
-
-
+MODEL_PATH = '..\models\CNN-Token-90.508.h5'
 
 # Preprocess Data
 # load
-all_data = DataLoader('../data/token_train.tsv', '../data/token_test.tsv', '../data/tweets_netanyahu.txt')
-
+all_data = DataLoader('../data/token_train.tsv', '../data/token_test.tsv', '../data/edge')
 
 # tokenize
 heb_tokenizer = HebrewTokenizer(all_data.x_token_train, init_from_file=True)
 x_token_train = heb_tokenizer.texts_to_sequences(all_data.x_token_train)
 x_token_test = heb_tokenizer.texts_to_sequences(all_data.x_token_test)
-x_tweets = heb_tokenizer.texts_to_sequences(all_data.x_tweets_test)
+
+x_tweets_dict_pre_processed = {}
+for key, x_tweets in all_data.x_tweets_dict.items():
+    x_tweets_pre_processed = heb_tokenizer.texts_to_sequences(list(x_tweets['full_text']))
+    x_tweets_pre_processed = pad_data_list([list(x_tweets_pre_processed)])[0]
+    x_tweets_dict_pre_processed[key] = x_tweets_pre_processed
 
 y_token_test = all_data.y_token_test
 y_token_train = all_data.y_token_train
 
 # pad
 x_token_train, x_token_test = pad(x_token_train, x_token_test)
-x_tweets = pad_data_list([x_tweets])[0]
 
 
 def train_model():
@@ -47,7 +48,7 @@ def train_model():
     vocabulary_size = 5000
 
     ## CNN - Token
-    num_epochs = 5
+    num_epochs = 10
 
     # Create new TF graph
     K.clear_session()
@@ -75,11 +76,14 @@ def train_model():
                   metrics=['accuracy'])
 
     # Train the model
+    es = EarlyStopping(patience=3)
+    rlrop = ReduceLROnPlateau(patience=2)
     history = model.fit(x_token_train, y_token_train,
                         batch_size=batch_size,
                         epochs=num_epochs,
                         verbose=1,
-                        validation_split=dev_size)
+                        validation_split=dev_size,
+                        callbacks=[es, rlrop])
 
     # Plot training accuracy and loss
     plot_loss_and_accuracy(history)
@@ -95,13 +99,21 @@ def train_model():
 
 def predict_tweets():
     new_model = load_model(MODEL_PATH)
-    predictions = new_model.predict(x_tweets)
-    predictions = predictions.argmax(axis=1)
-    # create predictions file
-    predictions = pd.DataFrame(predictions)
-    tweets = pd.DataFrame(all_data.x_tweets_test)
-    tweets['preds'] = predictions[0]
-    tweets.to_csv('..\\results\\labeled_tweets.csv', encoding='utf-8', index=False, header=False)
+    for file_name, x_tweets_processed in x_tweets_dict_pre_processed.items():
+        predictions = new_model.predict(x_tweets_processed)
+        predictions_prob = np.max(predictions, axis=1)
+        predictions_binary = predictions.argmax(axis=1)
+        # create predictions file
+
+        predictions_binary = pd.DataFrame(predictions_binary)
+        predictions_prob = pd.DataFrame(predictions_prob)
+
+        tweets = pd.DataFrame(all_data.x_tweets_dict[file_name])
+        tweets['preds_binary'] = predictions_binary[0]
+        tweets['preds_prob'] = predictions_prob[0]
+        tweets.to_csv('..\\results\\edge\\cnn\\' + file_name, header=True, index=False, encoding='utf-8')
+    print("Done prediction")
 
 
 train_model()
+# predict_tweets()

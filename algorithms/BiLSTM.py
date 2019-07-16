@@ -26,7 +26,7 @@ all_data = DataLoader('../data/token_train.tsv', '../data/token_test.tsv', '../d
 heb_tokenizer = HebrewTokenizer(all_data.x_token_train, init_from_file=True)
 x_token_train = heb_tokenizer.texts_to_sequences(all_data.x_token_train)
 x_token_test = heb_tokenizer.texts_to_sequences(all_data.x_token_test)
-x_tweets = heb_tokenizer.texts_to_sequences(all_data.x_tweets_test)
+x_tweets = heb_tokenizer.texts_to_sequences(all_data.x_tweets_dict)
 
 y_token_test = all_data.y_token_test
 y_token_train = all_data.y_token_train
@@ -99,7 +99,7 @@ def predict_tweets():
     predictions = predictions.argmax(axis=1)
     # create predictions file
     predictions = pd.DataFrame(predictions)
-    tweets = pd.DataFrame(all_data.x_tweets_test)
+    tweets = pd.DataFrame(all_data.x_tweets_dict)
     tweets['preds'] = predictions[0]
     tweets.to_csv('..\\results\\labeled_tweets.csv', encoding='utf-8', index=False, header=False)
 
