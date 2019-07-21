@@ -115,5 +115,5 @@ def predict_tweets():
     print("Done prediction")
 
 
-train_model()
-# predict_tweets()
+# train_model()
+predict_tweets()
